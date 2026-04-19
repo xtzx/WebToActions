@@ -25,3 +25,11 @@
 - 已在 `docs/技术文档/开发步骤拆解.md` 顶部加入进度计划（执行看板），便于后续直接按阶段跟进。
 - 已完成本地 `git` 仓库初始化、GitHub 远程绑定，并补齐 `.gitignore`、`README.md`、`.env.example` 等开发前置文件。
 - 已将进度看板中的“开发前置”阶段更新为完成状态，下一步将进入阶段 0 技术 Spike。
+- 已新增 `docs/技术文档/开发规范.md`，先以最小约束支持 `阶段 0：技术 Spike` 与 `阶段 1：工程骨架`。
+- 已完成 `FastAPI` 最小后端 Spike 骨架，并通过 `backend/tests/api/test_health.py`。
+- 已完成 `React + Vite` 最小前端 Spike 骨架，`npm run build` 通过，且前端代理访问 `/api/health` 联调成功。
+- 已完成 `backend/spikes/browser_recording_poc.py` 独立 PoC，真实生成 `example.com` 的 JSON 录制结果，覆盖导航、网络摘要和会话状态摘要。
+- 已将 `docs/技术文档/开发步骤拆解.md` 中的 `阶段 0：技术 Spike` 更新为完成状态，并记录本阶段结论与踩坑点。
+- 已为浏览器 PoC 增加本机浏览器支持：默认保持 `Playwright Chromium`，同时新增 `--browser-channel chrome` 与 `--browser-path` 可选启动方式。
+- 已同步更新 `backend/spikes/README.md`、`docs/技术文档/技术方案设计.md`、`docs/技术文档/开发规范.md`，收口浏览器启动策略。
+- 已补强 `docs/技术文档/开发步骤拆解.md`，新增新 `session` 接力说明、当前仓库基线与推荐提示词，便于后续在新会话中直接从 `阶段 1` 开始开发。
