@@ -5,11 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "webtoactions-backend"
 version = "0.1.0"
-description = "Backend spike for WebToActions"
+description = "Backend engineering skeleton for WebToActions"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
+  "pydantic>=2",
+  "pydantic-settings>=2",
   "uvicorn[standard]>=0.32.0",
   "playwright>=1.49.0",
 ]

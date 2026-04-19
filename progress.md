@@ -33,3 +33,10 @@
 - 已为浏览器 PoC 增加本机浏览器支持：默认保持 `Playwright Chromium`，同时新增 `--browser-channel chrome` 与 `--browser-path` 可选启动方式。
 - 已同步更新 `backend/spikes/README.md`、`docs/技术文档/技术方案设计.md`、`docs/技术文档/开发规范.md`，收口浏览器启动策略。
 - 已补强 `docs/技术文档/开发步骤拆解.md`，新增新 `session` 接力说明、当前仓库基线与推荐提示词，便于后续在新会话中直接从 `阶段 1` 开始开发。
+- 已完成 `阶段 1：工程骨架` 的后端正式收口：统一 `Python 3.11+` 基线、补齐 `backend/app/core/config.py`、更新 `FastAPI` 应用工厂与健康检查契约。
+- 已完成前端正式收口：引入 `React Router`、补齐 `router / components / features / types` 目录、建立首页和一级导航壳子、接入最小前端测试基线。
+- 已新增 `scripts/dev/start_backend.sh` 与 `scripts/dev/start_frontend.sh`，统一开发模式启动入口。
+- 已完成阶段验证：后端测试、前端测试、前端构建、健康检查接口和首页手工验证均通过。
+- 已将 `docs/技术文档/开发步骤拆解.md` 中的 `阶段 1` 更新为完成，下一步进入 `阶段 2：领域模型与存储骨架`。
+- 本机验证时 `5173` 端口已被占用，`Vite` 开发服务器自动回退到 `5174`；当前启动脚本可正常工作，使用时应以终端输出的实际地址为准。
+- 已将默认 `WEBTOACTIONS_DATA_DIR` 锚定到仓库根目录，并保持 `/api/health` 继续回显 `.webtoactions`，避免后续阶段在 `backend/` 目录下误写入数据。

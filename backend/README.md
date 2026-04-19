@@ -1,10 +1,22 @@
-# WebToActions Backend Spike
+# WebToActions Backend
 
-该目录用于承载 `WebToActions` 的后端 `Spike` 与后续正式后端工程。
+该目录承载 `WebToActions` 的正式后端工程骨架。
 
-当前阶段重点：
+当前阶段已完成：
 
-- 验证 `FastAPI` 最小本地服务是否可运行；
-- 验证 `Playwright Python` 能否完成浏览器上下文与网络采集；
-- 验证最小动作宏执行闭环；
-- 为下一阶段正式工程骨架提供可复用起点。
+- `FastAPI` 正式应用入口
+- 统一配置读取模块
+- 稳定的 `/api/health` 契约
+- 后续 `session / recording / review / action / execution / importexport / browser / infrastructure` 模块边界
+
+本地开发启动：
+
+```bash
+../scripts/dev/start_backend.sh
+```
+
+后端测试：
+
+```bash
+../.venv/bin/python -m pytest tests -v
+```

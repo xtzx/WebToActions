@@ -1,7 +1,14 @@
 export interface HealthResponse {
   status: string;
-  stage?: string;
-  [key: string]: unknown;
+  phase: string;
+  appName: string;
+  environment: string;
+  apiPrefix: string;
+  targetPython: string;
+  runtimePython: string;
+  dataDir: string;
+  browserChannel: string;
+  browserHeadless: boolean;
 }
 
 const HEALTH_ENDPOINT = '/api/health';
@@ -16,7 +23,7 @@ export async function fetchHealth(): Promise<HealthResponse> {
 
   if (!response.ok) {
     throw new Error(
-      `Health check failed: ${response.status} ${response.statusText}`
+      `健康检查失败：${response.status} ${response.statusText}`
     );
   }
 

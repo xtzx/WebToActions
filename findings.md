@@ -21,3 +21,9 @@
 - 浏览器运行策略已收口为“双轨制”：默认使用 `Playwright Chromium` 作为稳定基线，同时支持本机已安装 `Chrome` 作为可选通道。
 - “使用本机 Chrome” 不等于“自动复用当前日常 Chrome 的 Profile / 登录态”，首版仍以隔离上下文为主。
 - `docs/技术文档/开发步骤拆解.md` 已补充新 `session` 接力说明，可作为后续新会话直接启动待开始阶段开发的主执行文档。
+- `阶段 1` 已完成正式工程化收口：后端已具备统一配置入口，前端已具备正式路由壳子与一级导航占位。
+- `Python 3.11+` 已从文档要求收口为工程基线，后端运行和验证不再以本机 `Python 3.10.0` 为兼容目标。
+- 本地开发启动入口已统一到 `scripts/dev/start_backend.sh` 与 `scripts/dev/start_frontend.sh`，新 `session` 可直接复用。
+- 前端在 `阶段 1` 即补入了最小 `Vitest + React Testing Library` 基线，可支持后续页面骨架演进时的回归验证。
+- 当前 `start_frontend.sh` 仍沿用 `Vite` 默认端口回退策略；若 `5173` 被占用，开发服务器会自动切到其他端口，使用时应以终端输出为准。
+- 默认 `WEBTOACTIONS_DATA_DIR` 已锚定到仓库根目录；对外健康契约仍保持相对展示值 `.webtoactions`，从而兼顾运行稳定性与既有文档口径。
