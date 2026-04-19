@@ -9,11 +9,13 @@ description = "Backend engineering skeleton for WebToActions"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "alembic",
   "fastapi>=0.115.0",
   "pydantic>=2",
   "pydantic-settings>=2",
   "uvicorn[standard]>=0.32.0",
   "playwright>=1.49.0",
+  "sqlalchemy",
 ]
 
 [project.optional-dependencies]

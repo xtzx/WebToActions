@@ -1,1 +1,5 @@
-"""Stage 1 package boundary for recording features."""
+"""Recording features."""
+
+from app.recording.repository import RecordingAggregate, RecordingRepository
+
+__all__ = ["RecordingAggregate", "RecordingRepository"]

@@ -89,7 +89,7 @@ export function AppShell() {
         <div style={brandBlockStyle}>
           <p style={brandStyle}>WebToActions</p>
           <p style={brandMetaStyle}>
-            阶段 1 先建立统一路由壳子、导航入口与测试基线。
+            阶段 4 已补齐元数据审核页、分析状态流与审核结果保存。
           </p>
         </div>
 

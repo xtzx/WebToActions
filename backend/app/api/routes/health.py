@@ -12,7 +12,7 @@ def get_health() -> dict[str, str | bool]:
 
     return {
         "status": "ok",
-        "phase": "stage1",
+        "phase": "stage4",
         "appName": settings.app_name,
         "environment": settings.app_env,
         "apiPrefix": settings.api_prefix,

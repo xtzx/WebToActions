@@ -2,7 +2,12 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import { AppShell } from '../components/layout/AppShell';
 import { HomePage } from '../pages/HomePage';
+import { RecordingDetailPage } from '../pages/recordings/RecordingDetailPage';
+import { RecordingListPage } from '../pages/recordings/RecordingListPage';
+import { NewRecordingPage } from '../pages/recordings/NewRecordingPage';
+import { ReviewPage } from '../pages/review/ReviewPage';
 import { SectionPlaceholderPage } from '../pages/SectionPlaceholderPage';
+import { SessionListPage } from '../pages/sessions/SessionListPage';
 
 const router = createBrowserRouter([
   {
@@ -15,30 +20,32 @@ const router = createBrowserRouter([
       },
       {
         path: 'recordings',
-        element: (
-          <SectionPlaceholderPage
-            title="录制中心"
-            description="这里会承接录制相关页面与流程入口。"
-          />
-        )
+        element: <RecordingListPage />
+      },
+      {
+        path: 'recordings/new',
+        element: <NewRecordingPage />
+      },
+      {
+        path: 'recordings/:recordingId',
+        element: <RecordingDetailPage />
       },
       {
         path: 'sessions',
-        element: (
-          <SectionPlaceholderPage
-            title="会话管理"
-            description="这里会承接会话列表、状态查看与后续管理入口。"
-          />
-        )
+        element: <SessionListPage />
       },
       {
         path: 'review',
         element: (
           <SectionPlaceholderPage
             title="审核中心"
-            description="这里会承接审核结果查看与问题处理入口。"
+            description="请从录制详情进入具体录制的审核页。"
           />
         )
+      },
+      {
+        path: 'review/:recordingId',
+        element: <ReviewPage />
       },
       {
         path: 'actions',

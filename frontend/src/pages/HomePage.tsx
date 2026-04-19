@@ -156,25 +156,26 @@ export function HomePage() {
   return (
     <div style={containerStyle}>
       <section style={panelStyle}>
-        <span style={badgeStyle}>Stage 1 Skeleton</span>
+        <span style={badgeStyle}>Stage 4 Metadata Review MVP</span>
         <h1 style={titleStyle}>WebToActions 管理台</h1>
         <p style={textStyle}>
-          当前阶段聚焦统一配置、路由、导航、启动方式和测试基线，为后续真实业务能力接入保留正式入口。
+          当前阶段已补齐从录制结果进入元数据审核的主闭环，支持分析状态流、关键请求标注与审核结果保存。
         </p>
         <div style={metaListStyle}>
-          <div style={metaItemStyle}>统一配置</div>
-          <div style={metaItemStyle}>正式路由</div>
-          <div style={metaItemStyle}>一级导航</div>
-          <div style={metaItemStyle}>统一启动方式</div>
-          <div style={metaItemStyle}>测试基线</div>
+          <div style={metaItemStyle}>录制列表</div>
+          <div style={metaItemStyle}>新建录制</div>
+          <div style={metaItemStyle}>录制详情</div>
+          <div style={metaItemStyle}>会话管理</div>
+          <div style={metaItemStyle}>审核页</div>
+          <div style={metaItemStyle}>分析状态流</div>
         </div>
       </section>
 
       <section style={panelStyle}>
         <h2 style={{ marginTop: 0, marginBottom: '12px' }}>后端健康检查</h2>
         <p style={textStyle}>
-          前端通过 <code>/api/health</code> 连接正式后端契约，确认阶段 1
-          骨架已经统一到新的路由和启动方式。
+          前端通过 <code>/api/health</code> 连接正式后端契约，确认当前后端运行环境、
+          API 前缀和浏览器基线都处于可用状态。
         </p>
         <div style={actionRowStyle}>
           <button

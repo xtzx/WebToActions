@@ -40,3 +40,26 @@
 - 已将 `docs/技术文档/开发步骤拆解.md` 中的 `阶段 1` 更新为完成，下一步进入 `阶段 2：领域模型与存储骨架`。
 - 本机验证时 `5173` 端口已被占用，`Vite` 开发服务器自动回退到 `5174`；当前启动脚本可正常工作，使用时应以终端输出的实际地址为准。
 - 已将默认 `WEBTOACTIONS_DATA_DIR` 锚定到仓库根目录，并保持 `/api/health` 继续回显 `.webtoactions`，避免后续阶段在 `backend/` 目录下误写入数据。
+- 已从 `stage1-engineering-skeleton` 提交基线切出新的 `stage2-domain-storage` worktree，作为 `阶段 2：领域模型与存储骨架` 的独立执行环境。
+- 已在新 worktree 中重新建立 `.venv` 与 `frontend/node_modules`，并复跑 `backend/tests`、前端 `vitest` 与 `build`，确认阶段 2 从干净可运行的阶段 1 基线继续推进。
+- 已确认阶段 2 默认不改前端；当前实现重点聚焦后端领域对象、`SQLite`/文件对象区、状态机规则与初始化机制。
+- 已明确阶段 2 的两个范围决策：`BusinessAction` 只留位不做完整能力；关键对象状态机在本阶段显式建模并通过测试锁定。
+- 已完成阶段 2 的领域契约收口：补齐 `session / recording / evidence / review / action / execution / importexport` 域模型，实现不可变状态转移、稳定 `id + version + previous_version` 版本语义，并以自动化测试锁定关键不变量。
+- 已完成 `SQLite + Alembic` 存储基线：新增 `backend/app/infrastructure/db/schema.py`、`backend/alembic/` 迁移基线以及基础索引表结构，可在空白数据目录上直接升级到 `head`。
+- 已完成文件对象区 bootstrap：新增 `StorageLayout` 与 `ObjectDigest`，固定 `.webtoactions/` 下的 `evidence / actions / runs / exports` 目录结构、对象路径规则与 `sha256` 摘要能力。
+- 已完成最小仓储整合与应用启动初始化：`FastAPI` 生命周期会自动 bootstrap 数据目录与 SQLite，`SqliteRecordingRepository` 已能对 `BrowserSession + Recording + MetadataDraft + ReviewedMetadata` 完成最小写入与读回闭环。
+- 已完成阶段 2 最终验证：后端测试 `27 passed`、前端测试 `4 passed`、前端构建通过，且临时目录 smoke 验证确认 `.webtoactions/` 结构与 `app.db` 可自动初始化。
+- 已将 `docs/技术文档/开发步骤拆解.md` 中的 `阶段 2` 更新为完成，下一步进入 `阶段 3：录制链路 MVP`。
+- 已开始阶段 3 实施，并先把 `docs/技术文档/开发步骤拆解.md` 与 `task_plan.md` 中的阶段状态切换为“进行中”，继续沿用 `stage2-domain-storage` worktree 执行，避免覆盖主工作区中未合并的本地改动。
+- 已通过后端 TDD 落地阶段 3 核心链路：新增浏览器桥接层、浏览器会话管理、录制编排、证据写入与 `SSE` 事件流；`backend/tests/recording/test_recording_flow.py` 先失败后通过，覆盖会话 API、开始/结束录制、详情读取、blob 落盘与 `SSE` 初始快照。
+- 已扩展 `SqliteRecordingRepository` 与新增 `SqliteBrowserSessionRepository`，使阶段 3 可持久化 `PageStage`、`RequestResponseRecord`、`SessionStateSnapshot` 与 `FileTransferRecord`，并把健康检查契约的 `phase` 同步升级为 `stage3`。
+- 已完成前端阶段 3 页面接入：新增录制列表页、新建录制页、录制详情页、会话管理页，以及 `recordings / sessions / EventSource` 服务封装；`frontend/src/App.test.tsx` 已更新为阶段 3 契约并通过。
+- 已完成阶段 3 最终验证：后端测试 `29 passed`、前端测试 `5 passed`、前端构建通过，确认录制链路 MVP 的前后端最小闭环与文档状态一致。
+- 已将 `README.md`、`backend/README.md`、`docs/技术文档/开发步骤拆解.md`、`task_plan.md`、`findings.md` 与 `progress.md` 同步到阶段 3 完成语境，下一步进入 `阶段 4：元数据审核 MVP`。
+- 已开始阶段 4 实施，并先把 `docs/技术文档/开发步骤拆解.md` 与 `task_plan.md` 中的阶段状态切换为“进行中”，继续沿用 `stage2-domain-storage` worktree 执行，避免覆盖主工作区中仍未合并的本地改动。
+- 已通过后端 TDD 落地阶段 4 审核链路：新增确定性 `MetadataAnalysisService`、`ReviewJobRunner`、`ReviewService` 与 `/api/reviews/{recording_id}` 系列 API；`backend/tests/review/test_review_flow.py` 先失败后通过，覆盖 draft 生成、审核状态 `SSE` 与 `ReviewedMetadata` 版本保存。
+- 已扩展 review 域与持久化契约：`MetadataDraft` 改为结构化参数/动作片段建议，`ReviewedMetadata` 新增噪音请求标注，`Alembic` 新增阶段 4 迁移，`/api/health` 的 `phase` 同步升级为 `stage4`。
+- 已完成前端阶段 4 页面接入：新增 `/review/:recordingId` 审核页、请求审核面板、参数建议面板与审核状态流 hook，并从录制详情页补入“进入审核”入口；`frontend/src/App.test.tsx` 已更新为阶段 4 契约并通过。
+- 已根据独立代码审查补强阶段 4 防线：禁止未结束录制进入分析、审核保存时校验请求/页面阶段归属与 `key/noise` 冲突、前端显式区分 `failed` 分析状态。
+- 已完成阶段 4 最终验证：后端测试 `31 passed`、前端测试 `7 passed`、前端构建通过，确认“录制结果 -> 审核结果”第二条业务闭环可运行。
+- 已将 `README.md`、`backend/README.md`、`docs/技术文档/开发步骤拆解.md`、`task_plan.md`、`findings.md` 与 `progress.md` 同步到阶段 4 完成语境，下一步进入 `阶段 5：ActionMacro 与执行 MVP`。
