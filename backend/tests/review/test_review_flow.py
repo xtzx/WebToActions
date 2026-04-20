@@ -106,11 +106,57 @@ class FakePlaywrightBridge:
         return FakeRecordingHandle(callbacks=callbacks)
 
 
-def build_test_client(tmp_path: Path, monkeypatch) -> TestClient:  # type: ignore[no-untyped-def]
+@dataclass
+class NoPageStageRecordingHandle:
+    callbacks: FakeRecordingCallbacks
+
+    def __post_init__(self) -> None:
+        self.callbacks.on_request(
+            request_id="req-1",
+            method="POST",
+            url="https://example.com/api/expenses",
+            headers=[("content-type", "application/json")],
+            body=b'{"amount":108,"currency":"CNY"}',
+            resource_type="xhr",
+            is_navigation_request=False,
+        )
+        self.callbacks.on_response(
+            request_id="req-1",
+            status=200,
+            status_text="OK",
+            headers=[("content-type", "application/json")],
+            body=b'{"expenseId":"exp-1"}',
+        )
+
+    def stop(self) -> dict[str, object]:
+        return {
+            "currentUrl": "https://example.com/expense/new",
+            "pageTitle": "报销创建页",
+            "cookieSummary": {"count": "1", "domains": "example.com"},
+            "storageSummary": {"localStorage": {"itemCount": "1"}},
+            "loginSiteSummaries": ["example.com"],
+        }
+
+
+class NoPageStageBridge:
+    def start_recording(self, **kwargs) -> NoPageStageRecordingHandle:  # type: ignore[no-untyped-def]
+        callbacks = kwargs["callbacks"]
+        return NoPageStageRecordingHandle(callbacks=callbacks)
+
+
+def build_test_client(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    browser_bridge_factory=None,
+) -> TestClient:  # type: ignore[no-untyped-def]
     data_dir = tmp_path / ".webtoactions"
     monkeypatch.setenv("WEBTOACTIONS_DATA_DIR", str(data_dir))
     get_settings.cache_clear()
-    app = create_app(browser_bridge_factory=lambda _settings: FakePlaywrightBridge())
+    app = create_app(
+        browser_bridge_factory=browser_bridge_factory
+        or (lambda _settings: FakePlaywrightBridge())
+    )
     return TestClient(app)
 
 
@@ -317,5 +363,96 @@ def test_review_flow_rejects_invalid_review_payload(
         )
         assert invalid_response.status_code == 400
         assert "noise" in invalid_response.json()["detail"]
+
+    get_settings.cache_clear()
+
+
+def test_review_flow_preserves_failed_analysis_until_manual_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    data_dir = tmp_path / ".webtoactions"
+    monkeypatch.setenv("WEBTOACTIONS_DATA_DIR", str(data_dir))
+    get_settings.cache_clear()
+    app = create_app(browser_bridge_factory=lambda _settings: FakePlaywrightBridge())
+
+    with TestClient(app) as client:
+        original_analyze = app.state.review_job_runner._metadata_analysis_service.analyze_recording
+        call_count = {"value": 0}
+
+        def flaky_analyze(recording_id: str):  # type: ignore[no-untyped-def]
+            call_count["value"] += 1
+            if call_count["value"] == 1:
+                raise RuntimeError("analysis exploded")
+            return original_analyze(recording_id)
+
+        monkeypatch.setattr(
+            app.state.review_job_runner._metadata_analysis_service,
+            "analyze_recording",
+            flaky_analyze,
+        )
+
+        recording_id = create_stopped_recording(client)
+
+        for _ in range(20):
+            snapshot = app.state.review_job_runner.get_snapshot(recording_id)
+            if snapshot is not None and snapshot.status == "failed":
+                break
+            time.sleep(0.05)
+        else:
+            raise AssertionError("Review analysis did not enter failed state in time.")
+
+        failed_context = client.get(f"/api/reviews/{recording_id}")
+        assert failed_context.status_code == 200
+        assert failed_context.json()["analysisStatus"] == "failed"
+        assert call_count["value"] == 1
+
+        retry_response = client.post(f"/api/reviews/{recording_id}/analysis")
+        assert retry_response.status_code == 200
+
+        completed_context = wait_for_completed_review_context(client, recording_id)
+        assert completed_context["analysisStatus"] == "completed"
+        assert call_count["value"] == 2
+
+    get_settings.cache_clear()
+
+
+def test_review_flow_omits_invalid_default_action_fragment_when_page_stage_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    with build_test_client(
+        tmp_path,
+        monkeypatch,
+        browser_bridge_factory=lambda _settings: NoPageStageBridge(),
+    ) as client:
+        recording_id = create_stopped_recording(client)
+        context = wait_for_completed_review_context(client, recording_id)
+
+        assert context["pageStages"] == []
+        assert context["latestDraft"]["actionFragmentSuggestions"] == []
+
+        save_response = client.post(
+            f"/api/reviews/{recording_id}/reviewed-metadata",
+            json={
+                "reviewer": "alice",
+                "sourceDraftId": context["latestDraft"]["id"],
+                "sourceDraftVersion": context["latestDraft"]["version"],
+                "keyRequestIds": ["req-1"],
+                "noiseRequestIds": [],
+                "fieldDescriptions": {
+                    "amount": "报销金额",
+                    "currency": "币种",
+                },
+                "parameterSourceMap": {
+                    "amount": "request.body.amount",
+                    "currency": "request.body.currency",
+                },
+                "actionStageIds": [],
+                "riskFlags": [],
+            },
+        )
+
+        assert save_response.status_code == 201
 
     get_settings.cache_clear()

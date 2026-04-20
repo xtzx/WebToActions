@@ -156,10 +156,10 @@ export function HomePage() {
   return (
     <div style={containerStyle}>
       <section style={panelStyle}>
-        <span style={badgeStyle}>Stage 4 Metadata Review MVP</span>
+        <span style={badgeStyle}>Stage 7 Stabilization</span>
         <h1 style={titleStyle}>WebToActions 管理台</h1>
         <p style={textStyle}>
-          当前阶段已补齐从录制结果进入元数据审核的主闭环，支持分析状态流、关键请求标注与审核结果保存。
+          当前阶段已补齐录制、审核、动作宏、执行、资料包导入导出，以及单进程运行模式的阶段收口能力。
         </p>
         <div style={metaListStyle}>
           <div style={metaItemStyle}>录制列表</div>
@@ -168,6 +168,10 @@ export function HomePage() {
           <div style={metaItemStyle}>会话管理</div>
           <div style={metaItemStyle}>审核页</div>
           <div style={metaItemStyle}>分析状态流</div>
+          <div style={metaItemStyle}>动作库与动作详情</div>
+          <div style={metaItemStyle}>执行中心与执行详情</div>
+          <div style={metaItemStyle}>导入导出页</div>
+          <div style={metaItemStyle}>单进程运行模式</div>
         </div>
       </section>
 

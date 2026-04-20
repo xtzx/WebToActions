@@ -1,6 +1,6 @@
 # WebToActions Backend
 
-该目录承载 `WebToActions` 的正式后端工程，以及已完成到阶段 4 的元数据审核能力。
+该目录承载 `WebToActions` 的正式后端工程，当前已完成到阶段 7 的导入导出、运行模式与稳定性收口。
 
 当前阶段已完成：
 
@@ -18,16 +18,40 @@
 - 录制状态 `SSE` 推送
 - `MetadataDraft` 确定性分析、审核上下文 API 与审核状态 `SSE`
 - `ReviewedMetadata` 版本保存与噪音请求标注
-- 阶段 4 健康契约（`phase=stage4`）
+- `ActionMacro` 生成、执行入口、执行日志与执行状态 `SSE`
+- `RECORDING` 单条链路资料包导出 / 导入
+- 运行模式下前端静态资源挂载与 SPA fallback
+- 失败路径测试与运行模式 smoke test
+- 阶段 7 健康契约（`phase=stage7`）
 
-本地开发启动：
+说明：以下命令默认在**仓库根目录**执行；如果当前就在 `backend/` 目录，请先 `cd ..` 回到仓库根目录。
+
+开发模式（前后端分离）：
 
 ```bash
-../scripts/dev/start_backend.sh
+./scripts/dev/start_backend.sh
+```
+
+运行模式（单进程）：
+
+```bash
+./scripts/run/start_local_app.sh
+```
+
+若 `8000` 端口被占用，可覆盖端口：
+
+```bash
+APP_PORT=8010 ./scripts/run/start_local_app.sh
 ```
 
 后端测试：
 
 ```bash
-../.venv/bin/python -m pytest tests -v
+cd backend && ../.venv/bin/python -m pytest tests -v
 ```
+
+建议重点关注：
+
+- `tests/importexport/test_importexport_flow.py`
+- `tests/failure/test_failure_paths.py`
+- `tests/smoke/test_smoke.py`

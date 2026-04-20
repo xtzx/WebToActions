@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties
+} from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { subscribeToRecordingStream } from '../../services/events/sseClient';
@@ -94,38 +101,47 @@ export function RecordingDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadDetail() {
+  const loadDetail = useCallback(
+    async (options?: { preserveLoading?: boolean }) => {
       if (!recordingId) {
         return;
       }
 
+      if (!options?.preserveLoading) {
+        setLoading(true);
+      }
+
       try {
         const response = await fetchRecordingDetail(recordingId);
-        if (!cancelled) {
-          setDetail(response);
-          setErrorMessage(null);
-        }
+        setDetail(response);
+        setErrorMessage(null);
       } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            error instanceof Error ? error.message : '录制详情加载失败。'
-          );
-        }
+        setErrorMessage(
+          error instanceof Error ? error.message : '录制详情加载失败。'
+        );
       } finally {
-        if (!cancelled) {
+        if (!options?.preserveLoading) {
           setLoading(false);
         }
       }
-    }
+    },
+    [recordingId]
+  );
 
-    void loadDetail();
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      await loadDetail();
+      if (cancelled) {
+        return;
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [recordingId]);
+  }, [loadDetail]);
 
   useEffect(() => {
     subscriptionRef.current?.close();
@@ -137,13 +153,14 @@ export function RecordingDetailPage() {
 
     const subscription = subscribeToRecordingStream(recordingId, (payload) => {
       setLiveSnapshot(payload);
+      void loadDetail({ preserveLoading: true });
     });
     subscriptionRef.current = subscription;
 
     return () => {
       subscription.close();
     };
-  }, [detail, recordingId]);
+  }, [detail, loadDetail, recordingId]);
 
   const effectiveSummary = useMemo(() => {
     if (!detail) {
@@ -189,7 +206,7 @@ export function RecordingDetailPage() {
   return (
     <section style={containerStyle}>
       <div style={panelStyle}>
-        <span style={chipStyle}>Stage 4 Review-Ready Recording</span>
+        <span style={chipStyle}>Stage 7 Stabilization</span>
         <h1 style={{ marginBottom: '12px' }}>{detail.name}</h1>
         <p style={{ color: '#475467', marginTop: 0 }}>
           会话：{detail.browserSessionId}，起始 URL：{detail.startUrl}

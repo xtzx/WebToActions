@@ -38,7 +38,12 @@ class ReviewJobRunner:
         self._snapshots: dict[str, ReviewJobSnapshot] = {}
         self._subscribers: dict[str, list[Queue[ReviewJobSnapshot]]] = {}
 
-    def ensure_started(self, recording_id: str) -> ReviewJobSnapshot:
+    def ensure_started(
+        self,
+        recording_id: str,
+        *,
+        allow_retry_failed: bool = False,
+    ) -> ReviewJobSnapshot:
         aggregate = self._recording_repository.get(recording_id)
         if aggregate is None:
             raise KeyError(f"Recording {recording_id} not found.")
@@ -66,6 +71,12 @@ class ReviewJobRunner:
         with self._lock:
             existing = self._snapshots.get(recording_id)
             if recording_id in self._active_recordings and existing is not None:
+                return existing
+            if (
+                existing is not None
+                and existing.status == "failed"
+                and not allow_retry_failed
+            ):
                 return existing
             self._active_recordings.add(recording_id)
 

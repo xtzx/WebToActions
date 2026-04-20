@@ -21,6 +21,11 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         alias="FRONTEND_DEV_ORIGIN",
     )
+    frontend_static_enabled: bool = Field(False, alias="FRONTEND_STATIC_ENABLED")
+    frontend_dist_dir: Path = Field(
+        Path("frontend/dist"),
+        alias="FRONTEND_DIST_DIR",
+    )
     browser_channel: str = Field("chromium", alias="BROWSER_CHANNEL")
     browser_headless: bool = Field(False, alias="BROWSER_HEADLESS")
 
@@ -47,7 +52,7 @@ class Settings(BaseSettings):
         version = sys.version_info
         return f"{version.major}.{version.minor}.{version.micro}"
 
-    @field_validator("webtoactions_data_dir", mode="after")
+    @field_validator("webtoactions_data_dir", "frontend_dist_dir", mode="after")
     @classmethod
     def anchor_data_dir_to_repo_root(cls, value: Path) -> Path:
         if value.is_absolute():

@@ -34,11 +34,14 @@ def create_recording(
     request: Request,
 ) -> dict[str, object]:
     orchestrator = request.app.state.recorder_orchestrator
-    aggregate = orchestrator.start_recording(
-        name=payload.name,
-        start_url=payload.start_url,
-        browser_session_id=payload.browser_session_id,
-    )
+    try:
+        aggregate = orchestrator.start_recording(
+            name=payload.name,
+            start_url=payload.start_url,
+            browser_session_id=payload.browser_session_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return _serialize_recording_summary(aggregate)
 
 

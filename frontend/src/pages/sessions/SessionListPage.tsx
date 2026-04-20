@@ -1,5 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 
+import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { createSession, fetchSessions } from '../../services/sessions';
 import type { BrowserSessionSummary } from '../../types/session';
 
@@ -95,7 +97,8 @@ export function SessionListPage() {
       <div style={panelStyle}>
         <h1 style={{ marginTop: 0 }}>会话管理</h1>
         <p style={{ color: '#475467' }}>
-          查看受控浏览器会话，并在必要时创建新的隔离会话。
+          查看受控浏览器会话，并在必要时创建新的隔离会话。若导入会话显示
+          `relogin_required` 或 `expired`，请创建新的可用会话继续录制或执行。
         </p>
         <button
           type="button"
@@ -111,7 +114,7 @@ export function SessionListPage() {
         </button>
 
         {loading ? <p>正在加载会话列表...</p> : null}
-        {errorMessage ? <p style={{ color: '#b42318' }}>{errorMessage}</p> : null}
+        {errorMessage ? <ErrorState message={errorMessage} title="会话列表加载失败" /> : null}
 
         {!loading && !errorMessage ? (
           <div style={listStyle}>
@@ -129,7 +132,7 @@ export function SessionListPage() {
                 </div>
               ))
             ) : (
-              <div style={itemStyle}>当前还没有会话，先创建一个新的浏览器会话。</div>
+              <EmptyState message="当前还没有会话，先创建一个新的浏览器会话。" />
             )}
           </div>
         ) : null}

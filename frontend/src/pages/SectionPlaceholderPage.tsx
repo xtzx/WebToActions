@@ -56,11 +56,11 @@ export function SectionPlaceholderPage({
 }: SectionPlaceholderPageProps) {
   return (
     <section style={cardStyle}>
-      <span style={badgeStyle}>Stage 1 Placeholder</span>
+      <span style={badgeStyle}>能力持续接入中</span>
       <h1 style={titleStyle}>{title}</h1>
       <p style={textStyle}>{description}</p>
       <div style={noteStyle}>
-        阶段 1 只保留正式导航入口，后续阶段再接入真实能力。
+        该入口已经纳入正式导航，其余能力会随阶段收口继续补齐。
       </div>
     </section>
   );

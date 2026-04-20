@@ -97,7 +97,10 @@ def get_review_context(recording_id: str, request: Request) -> dict[str, object]
 def enqueue_review_analysis(recording_id: str, request: Request) -> dict[str, object]:
     review_job_runner = request.app.state.review_job_runner
     try:
-        snapshot = review_job_runner.ensure_started(recording_id)
+        snapshot = review_job_runner.ensure_started(
+            recording_id,
+            allow_retry_failed=True,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ReviewAnalysisUnavailableError as exc:

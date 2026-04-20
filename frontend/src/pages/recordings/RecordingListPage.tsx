@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 
+import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { fetchRecordings } from '../../services/recordings';
 import type { RecordingSummary } from '../../types/recording';
 
@@ -116,7 +118,9 @@ export function RecordingListPage() {
         </div>
 
         {loading ? <p style={itemMetaStyle}>正在加载录制列表...</p> : null}
-        {errorMessage ? <p style={{ ...itemMetaStyle, color: '#b42318' }}>{errorMessage}</p> : null}
+        {errorMessage ? (
+          <ErrorState message={errorMessage} title="录制列表加载失败" />
+        ) : null}
 
         {!loading && !errorMessage ? (
           <div style={listStyle}>
@@ -135,7 +139,7 @@ export function RecordingListPage() {
                 </article>
               ))
             ) : (
-              <div style={itemStyle}>还没有录制，先创建第一条录制。</div>
+              <EmptyState message="还没有录制，先创建第一条录制。" />
             )}
           </div>
         ) : null}

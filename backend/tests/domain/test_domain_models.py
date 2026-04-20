@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.action.domain.action_macro import ActionMacro
+from app.action.domain.action_step import ActionStep
 from app.action.domain.business_action import BusinessAction
 from app.action.domain.parameter_definition import ParameterDefinition, ParameterKind
 from app.evidence.domain.file_transfer_record import FileTransferDirection, FileTransferRecord
@@ -44,6 +45,16 @@ def test_browser_session_uses_available_defaults_and_returns_new_instances_for_t
     assert restored is not None
     assert relogin_required.status == BrowserSessionStatus.RELOGIN_REQUIRED
     assert restored.status == BrowserSessionStatus.AVAILABLE
+
+
+def _request_replay_step(step_id: str, title: str) -> ActionStep:
+    return ActionStep(
+        id=step_id,
+        title=title,
+        request_id=f"req-{step_id}",
+        request_method="POST",
+        request_url=f"https://example.com/{step_id}",
+    )
 
 
 def test_browser_session_is_frozen_and_rejects_restoring_from_expired_state() -> None:
@@ -364,7 +375,7 @@ def test_versioned_artifacts_reject_cross_aggregate_drift_during_next_version() 
         version=1,
         source_reviewed_metadata_id="review-1",
         source_reviewed_metadata_version=1,
-        steps=["submit form"],
+        steps=[_request_replay_step("step-1", "submit form")],
     )
 
     with pytest.raises(ValueError, match="recording_id"):
@@ -424,13 +435,22 @@ def test_action_models_share_action_kind_semantics_and_version_identity() -> Non
         version=1,
         source_reviewed_metadata_id="review-1",
         source_reviewed_metadata_version=1,
-        steps=["open form", "submit form"],
+        steps=[
+            _request_replay_step("step-1", "open form"),
+            _request_replay_step("step-2", "submit form"),
+        ],
         parameter_definitions=[parameter],
     )
 
     assert callable(getattr(macro_v1, "next_version", None))
 
-    macro_v2 = macro_v1.next_version(steps=["open form", "submit form", "confirm result"])
+    macro_v2 = macro_v1.next_version(
+        steps=[
+            _request_replay_step("step-1", "open form"),
+            _request_replay_step("step-2", "submit form"),
+            _request_replay_step("step-3", "confirm result"),
+        ]
+    )
 
     assert macro_v1.id == macro_v2.id == "macro-1"
     assert macro_v2.version == 2
@@ -438,7 +458,7 @@ def test_action_models_share_action_kind_semantics_and_version_identity() -> Non
     assert macro_v2.created_at >= macro_v1.created_at
 
     with pytest.raises(TypeError, match="frozen"):
-        macro_v2.steps.append("mutated")
+        macro_v2.steps.append(_request_replay_step("step-x", "mutated"))
 
     business_parameter = ParameterDefinition(
         id="parameter-2",
@@ -483,7 +503,7 @@ def test_domain_models_serialize_plain_payloads_for_storage_boundaries() -> None
         version=1,
         source_reviewed_metadata_id="review-1",
         source_reviewed_metadata_version=1,
-        steps=["open form"],
+        steps=[_request_replay_step("step-1", "open form")],
         parameter_definitions=[
             ParameterDefinition(
                 id="parameter-1",
@@ -501,12 +521,12 @@ def test_domain_models_serialize_plain_payloads_for_storage_boundaries() -> None
         payload = macro.model_dump()
 
     assert caught == []
-    assert payload["steps"] == ["open form"]
+    assert payload["steps"][0]["title"] == "open form"
     assert payload["parameter_definitions"][0]["owner_kind"] == ExecutableActionKind.ACTION_MACRO
     assert "steps" not in macro.model_dump(exclude={"steps"})
     assert macro.model_dump(include={"id"}) == {"id": "macro-1"}
     assert "description" not in macro.model_dump(exclude_none=True)
-    assert '"steps":["open form"]' in macro.model_dump_json()
+    assert '"title":"open form"' in macro.model_dump_json()
 
 
 def test_action_models_are_frozen_and_reject_owner_kind_or_previous_version_mismatches() -> None:
@@ -525,7 +545,7 @@ def test_action_models_are_frozen_and_reject_owner_kind_or_previous_version_mism
         version=1,
         source_reviewed_metadata_id="review-1",
         source_reviewed_metadata_version=1,
-        steps=["submit form"],
+        steps=[_request_replay_step("step-1", "submit form")],
         parameter_definitions=[macro_parameter],
     )
 
@@ -540,7 +560,7 @@ def test_action_models_are_frozen_and_reject_owner_kind_or_previous_version_mism
             version=1,
             source_reviewed_metadata_id="review-1",
             source_reviewed_metadata_version=1,
-            steps=["submit form"],
+            steps=[_request_replay_step("step-1", "submit form")],
             parameter_definitions=[
                 ParameterDefinition(
                     id="parameter-2",
@@ -561,7 +581,7 @@ def test_action_models_are_frozen_and_reject_owner_kind_or_previous_version_mism
             version=2,
             source_reviewed_metadata_id="review-1",
             source_reviewed_metadata_version=1,
-            steps=["submit form"],
+            steps=[_request_replay_step("step-1", "submit form")],
         )
 
     with pytest.raises(ValidationError, match="previous_version"):

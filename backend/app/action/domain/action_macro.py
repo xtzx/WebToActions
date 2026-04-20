@@ -5,6 +5,7 @@ from typing import Self
 
 from pydantic import Field, model_validator
 
+from app.action.domain.action_step import ActionStep
 from app.action.domain.action_kind import ActionKind
 from app.action.domain.parameter_definition import ParameterDefinition
 from app.core.domain_model import VersionedArtifactModel
@@ -22,7 +23,7 @@ class ActionMacro(VersionedArtifactModel):
     source_reviewed_metadata_id: str = Field(min_length=1)
     source_reviewed_metadata_version: int = Field(ge=1)
     description: str | None = None
-    steps: list[str] = Field(default_factory=list)
+    steps: list[ActionStep] = Field(default_factory=list)
     required_page_stage_ids: list[str] = Field(default_factory=list)
     parameter_definitions: list[ParameterDefinition] = Field(default_factory=list)
     session_requirements: list[str] = Field(default_factory=list)

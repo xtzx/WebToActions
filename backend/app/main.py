@@ -1,14 +1,29 @@
 from contextlib import asynccontextmanager
+from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.api.routes.health import router as health_router
+from app.action.api.routes.actions import router as actions_router
+from app.action.service.action_orchestrator import ActionOrchestrator
 from app.browser.playwright_bridge import BrowserBridge, PlaywrightBridge
 from app.core import get_settings
 from app.core.config import Settings
 from app.evidence.service.evidence_writer import EvidenceWriter
+from app.execution.api.routes.executions import router as executions_router
+from app.execution.service.browser_replayer import (
+    BrowserReplayer,
+    PlaywrightBrowserReplayer,
+)
+from app.execution.service.execution_service import ExecutionService
+from app.importexport.api.routes.importexport import router as importexport_router
+from app.importexport.service.export_service import ExportService
+from app.importexport.service.import_service import ImportService
+from app.infrastructure.db.action_repository import SqliteActionMacroRepository
+from app.infrastructure.db.execution_repository import SqliteExecutionRunRepository
 from app.evidence.service.session_state_collector import SessionStateCollector
 from app.infrastructure.db.recording_repository import SqliteRecordingRepository
 from app.infrastructure.db.session_repository import SqliteBrowserSessionRepository
@@ -28,6 +43,7 @@ from app.session.service.browser_session_manager import BrowserSessionManager
 
 
 BrowserBridgeFactory = Callable[[Settings], BrowserBridge]
+BrowserReplayerFactory = Callable[[Settings], BrowserReplayer]
 
 
 def _default_browser_bridge_factory(settings: Settings) -> BrowserBridge:
@@ -37,9 +53,54 @@ def _default_browser_bridge_factory(settings: Settings) -> BrowserBridge:
     )
 
 
+def _default_browser_replayer_factory(settings: Settings) -> BrowserReplayer:
+    return PlaywrightBrowserReplayer(
+        browser_channel=settings.browser_channel,
+        browser_headless=settings.browser_headless,
+    )
+
+
+def _maybe_register_frontend_runtime_routes(app: FastAPI, settings: Settings) -> None:
+    if not settings.frontend_static_enabled:
+        return
+
+    dist_dir = settings.frontend_dist_dir
+    index_path = dist_dir / "index.html"
+    if not dist_dir.exists() or not index_path.exists():
+        return
+
+    api_prefix = settings.api_prefix.lstrip("/")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_frontend_index() -> FileResponse:
+        return FileResponse(index_path)
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend_path(full_path: str) -> FileResponse:
+        if full_path == api_prefix or full_path.startswith(f"{api_prefix}/"):
+            raise HTTPException(status_code=404, detail="API route not found.")
+
+        asset_path = _resolve_frontend_asset_path(dist_dir, full_path)
+        if asset_path is not None and asset_path.is_file():
+            return FileResponse(asset_path)
+        if PurePosixPath(full_path).suffix:
+            raise HTTPException(status_code=404, detail="Frontend asset not found.")
+        return FileResponse(index_path)
+
+
+def _resolve_frontend_asset_path(dist_dir: Path, full_path: str) -> Path | None:
+    candidate = (dist_dir / Path(full_path)).resolve()
+    try:
+        candidate.relative_to(dist_dir.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
 def create_app(
     *,
     browser_bridge_factory: BrowserBridgeFactory | None = None,
+    browser_replayer_factory: BrowserReplayerFactory | None = None,
 ) -> FastAPI:
     settings = get_settings()
     
@@ -49,6 +110,14 @@ def create_app(
         sqlite_runtime = initialize_sqlite_runtime(storage_layout.database_path)
         recording_repository = SqliteRecordingRepository(sqlite_runtime.session_factory)
         session_repository = SqliteBrowserSessionRepository(sqlite_runtime.session_factory)
+        action_repository = SqliteActionMacroRepository(
+            sqlite_runtime.session_factory,
+            storage_layout=storage_layout,
+        )
+        execution_repository = SqliteExecutionRunRepository(
+            sqlite_runtime.session_factory,
+            storage_layout=storage_layout,
+        )
         session_manager = BrowserSessionManager(
             repository=session_repository,
             profiles_root=storage_layout.root / "profiles",
@@ -71,14 +140,48 @@ def create_app(
             ),
             recording_repository=recording_repository,
         )
+        action_orchestrator = ActionOrchestrator(
+            recording_repository=recording_repository,
+            action_repository=action_repository,
+        )
+        execution_service = ExecutionService(
+            action_repository=action_repository,
+            recording_repository=recording_repository,
+            execution_repository=execution_repository,
+            session_manager=session_manager,
+            browser_replayer=(browser_replayer_factory or _default_browser_replayer_factory)(
+                settings
+            ),
+            storage_root=storage_layout.root,
+        )
+        importexport_export_service = ExportService(
+            recording_repository=recording_repository,
+            action_repository=action_repository,
+            execution_repository=execution_repository,
+            storage_layout=storage_layout,
+        )
+        importexport_import_service = ImportService(
+            recording_repository=recording_repository,
+            action_repository=action_repository,
+            execution_repository=execution_repository,
+            session_manager=session_manager,
+            session_factory=sqlite_runtime.session_factory,
+            storage_root=storage_layout.root,
+        )
         app.state.storage_layout = storage_layout
         app.state.sqlite_runtime = sqlite_runtime
         app.state.recording_repository = recording_repository
         app.state.browser_session_repository = session_repository
+        app.state.action_repository = action_repository
+        app.state.execution_repository = execution_repository
         app.state.browser_session_manager = session_manager
         app.state.recorder_orchestrator = recorder_orchestrator
         app.state.review_service = review_service
         app.state.review_job_runner = review_job_runner
+        app.state.action_orchestrator = action_orchestrator
+        app.state.execution_service = execution_service
+        app.state.importexport_export_service = importexport_export_service
+        app.state.importexport_import_service = importexport_import_service
         try:
             yield
         finally:
@@ -96,6 +199,10 @@ def create_app(
     app.include_router(sessions_router, prefix=settings.api_prefix)
     app.include_router(recordings_router, prefix=settings.api_prefix)
     app.include_router(reviews_router, prefix=settings.api_prefix)
+    app.include_router(actions_router, prefix=settings.api_prefix)
+    app.include_router(executions_router, prefix=settings.api_prefix)
+    app.include_router(importexport_router, prefix=settings.api_prefix)
+    _maybe_register_frontend_runtime_routes(app, settings)
     return app
 
 

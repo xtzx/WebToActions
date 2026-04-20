@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from sqlalchemy.orm import Session
+
 from app.evidence.domain import (
     FileTransferRecord,
     PageStage,
@@ -26,8 +28,11 @@ class RecordingAggregate:
 
 
 class RecordingRepository(Protocol):
-    def save(self, aggregate: RecordingAggregate) -> None:
+    def save(self, aggregate: RecordingAggregate, *, session: Session | None = None) -> None:
         """Persist one recording aggregate."""
+
+    def save_recording(self, recording: Recording) -> None:
+        """Persist only the recording root without rewriting children."""
 
     def get(self, recording_id: str) -> RecordingAggregate | None:
         """Load one recording aggregate by recording id."""

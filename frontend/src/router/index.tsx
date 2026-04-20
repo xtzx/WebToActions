@@ -1,7 +1,12 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import { AppShell } from '../components/layout/AppShell';
+import { ActionDetailPage } from '../pages/actions/ActionDetailPage';
+import { ActionListPage } from '../pages/actions/ActionListPage';
+import { ExecutionCenterPage } from '../pages/execution/ExecutionCenterPage';
+import { ExecutionDetailPage } from '../pages/execution/ExecutionDetailPage';
 import { HomePage } from '../pages/HomePage';
+import { ImportExportPage } from '../pages/importexport/ImportExportPage';
 import { RecordingDetailPage } from '../pages/recordings/RecordingDetailPage';
 import { RecordingListPage } from '../pages/recordings/RecordingListPage';
 import { NewRecordingPage } from '../pages/recordings/NewRecordingPage';
@@ -49,30 +54,23 @@ const router = createBrowserRouter([
       },
       {
         path: 'actions',
-        element: (
-          <SectionPlaceholderPage
-            title="动作库"
-            description="这里会承接动作资产查看、维护与复用入口。"
-          />
-        )
+        element: <ActionListPage />
+      },
+      {
+        path: 'actions/:actionId',
+        element: <ActionDetailPage />
       },
       {
         path: 'execution',
-        element: (
-          <SectionPlaceholderPage
-            title="执行中心"
-            description="这里会承接执行任务发起、结果查看与运行入口。"
-          />
-        )
+        element: <ExecutionCenterPage />
+      },
+      {
+        path: 'execution/:executionId',
+        element: <ExecutionDetailPage />
       },
       {
         path: 'importexport',
-        element: (
-          <SectionPlaceholderPage
-            title="导入导出"
-            description="这里会承接数据迁移、导入导出与交换入口。"
-          />
-        )
+        element: <ImportExportPage />
       }
     ]
   }

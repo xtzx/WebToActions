@@ -5,11 +5,12 @@ import {
   useState,
   type CSSProperties
 } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { ParameterSuggestionPanel } from '../../features/review/ParameterSuggestionPanel';
 import { RequestReviewPanel } from '../../features/review/RequestReviewPanel';
 import { useReviewJobStream } from '../../features/review/useReviewJobStream';
+import { createActionMacro } from '../../services/actions';
 import { fetchReviewContext, saveReviewedMetadata } from '../../services/reviews';
 import type { ReviewContext, ReviewedMetadataDetail } from '../../types/review';
 
@@ -85,9 +86,11 @@ type RequestLabel = 'ignored' | 'key' | 'noise';
 
 export function ReviewPage() {
   const { recordingId } = useParams();
+  const navigate = useNavigate();
   const [context, setContext] = useState<ReviewContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingAction, setGeneratingAction] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [reviewer, setReviewer] = useState('');
@@ -152,6 +155,10 @@ export function ReviewPage() {
       if (snapshot.error) {
         setErrorMessage(snapshot.error);
       }
+    },
+    () => {
+      setErrorMessage('审核状态流已中断，正在重新获取最新状态。');
+      void loadContext();
     }
   );
 
@@ -167,6 +174,35 @@ export function ReviewPage() {
     () => Object.values(requestLabels).filter((value) => value === 'key').length,
     [requestLabels]
   );
+  const hasUnsavedChanges = useMemo(() => {
+    if (!latestReviewedMetadata) {
+      return false;
+    }
+
+    return (
+      reviewer.trim() !== latestReviewedMetadata.reviewer.trim() ||
+      !haveSameStringItems(
+        collectRequestIds(requestLabels, 'key'),
+        latestReviewedMetadata.keyRequestIds
+      ) ||
+      !haveSameStringItems(
+        collectRequestIds(requestLabels, 'noise'),
+        latestReviewedMetadata.noiseRequestIds
+      ) ||
+      !haveSameStringRecord(fieldDescriptions, latestReviewedMetadata.fieldDescriptions) ||
+      !haveSameStringRecord(parameterSourceMap, latestReviewedMetadata.parameterSourceMap) ||
+      !haveSameStringItems(selectedActionStageIds, latestReviewedMetadata.actionStageIds) ||
+      !haveSameStringItems(parseRiskFlags(riskFlagsText), latestReviewedMetadata.riskFlags)
+    );
+  }, [
+    fieldDescriptions,
+    latestReviewedMetadata,
+    parameterSourceMap,
+    requestLabels,
+    reviewer,
+    riskFlagsText,
+    selectedActionStageIds
+  ]);
 
   async function handleSave() {
     if (!recordingId || !draft) {
@@ -184,10 +220,7 @@ export function ReviewPage() {
         fieldDescriptions,
         parameterSourceMap,
         actionStageIds: selectedActionStageIds,
-        riskFlags: riskFlagsText
-          .split(',')
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0)
+        riskFlags: parseRiskFlags(riskFlagsText)
       });
       setContext((previous) =>
         previous
@@ -207,12 +240,37 @@ export function ReviewPage() {
     }
   }
 
+  async function handleGenerateActionMacro() {
+    if (!recordingId || !latestReviewedMetadata) {
+      return;
+    }
+
+    setGeneratingAction(true);
+    try {
+      const action = await createActionMacro({ recordingId });
+      setErrorMessage(null);
+      navigate(`/actions/${action.id}`);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '动作宏生成失败。');
+    } finally {
+      setGeneratingAction(false);
+    }
+  }
+
   if (loading) {
     return <section style={panelStyle}>正在加载审核详情...</section>;
   }
 
-  if (!recordingId || !context) {
+  if (!recordingId) {
     return <section style={panelStyle}>未找到审核上下文。</section>;
+  }
+
+  if (!context) {
+    return (
+      <section style={panelStyle}>
+        {errorMessage ?? '未找到审核上下文。'}
+      </section>
+    );
   }
 
   return (
@@ -346,12 +404,40 @@ export function ReviewPage() {
               >
                 {saving ? '保存中...' : '保存审核结果'}
               </button>
+              {latestReviewedMetadata ? (
+                <button
+                  type="button"
+                  style={{
+                    ...primaryButtonStyle,
+                    background: '#0f766e',
+                    opacity: generatingAction || saving || hasUnsavedChanges ? 0.72 : 1,
+                    cursor:
+                      generatingAction || saving || hasUnsavedChanges
+                        ? 'not-allowed'
+                        : 'pointer'
+                  }}
+                  disabled={generatingAction || saving || hasUnsavedChanges}
+                  onClick={() => void handleGenerateActionMacro()}
+                >
+                  {generatingAction ? '生成中...' : '生成动作宏'}
+                </button>
+              ) : null}
             </div>
 
             {latestReviewedMetadata ? (
-              <p style={{ color: '#475467', marginTop: '16px' }}>
-                最近一次保存：v{latestReviewedMetadata.version}，审核人 {latestReviewedMetadata.reviewer}
-              </p>
+              <>
+                <p style={{ color: '#475467', marginTop: '16px' }}>
+                  最近一次保存：v{latestReviewedMetadata.version}，审核人 {latestReviewedMetadata.reviewer}
+                </p>
+                {hasUnsavedChanges ? (
+                  <p style={{ color: '#b54708', marginTop: '8px' }}>
+                    请先保存当前审核修改，再生成动作宏。
+                  </p>
+                ) : null}
+                <p style={{ color: '#475467', marginTop: '8px' }}>
+                  审核结果已可用于生成动作宏，并继续进入执行、导入导出与回归验证链路。
+                </p>
+              </>
             ) : null}
           </section>
         </>
@@ -405,10 +491,15 @@ function buildParameterSourceMap(context: ReviewContext): Record<string, string>
 }
 
 function buildSelectedActionStageIds(context: ReviewContext): string[] {
+  const validStageIds = new Set(context.pageStages.map((item) => item.id));
   if (context.latestReviewedMetadata) {
-    return [...context.latestReviewedMetadata.actionStageIds];
+    return context.latestReviewedMetadata.actionStageIds.filter((stageId) =>
+      validStageIds.has(stageId)
+    );
   }
-  return (context.latestDraft?.actionFragmentSuggestions ?? []).map((item) => item.stageId);
+  return (context.latestDraft?.actionFragmentSuggestions ?? [])
+    .map((item) => item.stageId)
+    .filter((stageId) => validStageIds.has(stageId));
 }
 
 function collectRequestIds(
@@ -430,4 +521,30 @@ function mergeReviewHistory(
       (item) => !(item.id === latest.id && item.version === latest.version)
     )
   ];
+}
+
+function haveSameStringItems(left: string[], right: string[]): boolean {
+  const normalizedLeft = [...left].sort();
+  const normalizedRight = [...right].sort();
+  return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+}
+
+function haveSameStringRecord(
+  left: Record<string, string>,
+  right: Record<string, string>
+): boolean {
+  const normalizedLeft = Object.fromEntries(
+    Object.entries(left).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+  );
+  const normalizedRight = Object.fromEntries(
+    Object.entries(right).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+  );
+  return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+}
+
+function parseRiskFlags(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }

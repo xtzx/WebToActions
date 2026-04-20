@@ -13,5 +13,7 @@ else
   exit 1
 fi
 
+export FRONTEND_STATIC_ENABLED=false
+
 cd "${BACKEND_DIR}"
 exec "${PYTHON_BIN}" -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000

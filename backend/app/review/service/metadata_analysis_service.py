@@ -124,6 +124,9 @@ class MetadataAnalysisService:
         if suggestions:
             return suggestions
 
+        if not aggregate.page_stages:
+            return []
+
         return [
             ActionFragmentSuggestion(
                 id="fragment-1",

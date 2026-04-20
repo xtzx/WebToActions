@@ -36,7 +36,7 @@ def test_health_endpoint_returns_formal_contract() -> None:
     payload = response.json()
 
     assert payload["status"] == "ok"
-    assert payload["phase"] == "stage4"
+    assert payload["phase"] == "stage7"
     assert payload["appName"] == "WebToActions Backend"
     assert payload["environment"] == "development"
     assert payload["apiPrefix"] == "/api"

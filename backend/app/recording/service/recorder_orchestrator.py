@@ -31,6 +31,9 @@ class _ActiveRecordingRuntime:
     page_stage_tracker: PageStageTracker
     network_collector: NetworkCollector
     file_transfer_collector: FileTransferCollector
+    browser_snapshot: dict[str, Any] | None = None
+    finished_recording: Recording | None = None
+    updated_session: BrowserSession | None = None
 
 
 class RecordingEventBroker:
@@ -166,17 +169,25 @@ class RecorderOrchestrator:
         return self._active_aggregate(runtime)
 
     def stop_recording(self, recording_id: str) -> RecordingAggregate:
-        runtime = self._active_recordings.pop(recording_id, None)
+        runtime = self._active_recordings.get(recording_id)
         if runtime is None:
             raise KeyError(f"Recording {recording_id} is not active.")
 
-        browser_snapshot = runtime.handle.stop()
+        if runtime.browser_snapshot is None:
+            runtime.browser_snapshot = runtime.handle.stop()
+        browser_snapshot = runtime.browser_snapshot
+
         runtime.page_stage_tracker.finish()
-        finished_recording = runtime.recording.finish()
-        updated_session = self._session_manager.update_session_activity(
-            runtime.browser_session,
-            login_site_summaries=list(browser_snapshot.get("loginSiteSummaries", [])),
-        )
+        if runtime.finished_recording is None:
+            runtime.finished_recording = runtime.recording.finish()
+        finished_recording = runtime.finished_recording
+
+        if runtime.updated_session is None:
+            runtime.updated_session = self._session_manager.update_session_activity(
+                runtime.browser_session,
+                login_site_summaries=list(browser_snapshot.get("loginSiteSummaries", [])),
+            )
+        updated_session = runtime.updated_session
         snapshot = self._session_state_collector.build_snapshot(
             recording_id=finished_recording.id,
             browser_session_id=updated_session.id,
@@ -200,6 +211,7 @@ class RecorderOrchestrator:
             file_transfer_records=runtime.file_transfer_collector.snapshot(),
         )
         self._recording_repository.save(aggregate)
+        self._active_recordings.pop(recording_id, None)
         self._event_broker.publish(
             recording_id,
             _build_snapshot(
@@ -235,8 +247,8 @@ class RecorderOrchestrator:
 
     def _active_aggregate(self, runtime: _ActiveRecordingRuntime) -> RecordingAggregate:
         return RecordingAggregate(
-            recording=runtime.recording,
-            browser_session=runtime.browser_session,
+            recording=runtime.finished_recording or runtime.recording,
+            browser_session=runtime.updated_session or runtime.browser_session,
             page_stages=runtime.page_stage_tracker.snapshot(),
             request_response_records=runtime.network_collector.snapshot(),
             file_transfer_records=runtime.file_transfer_collector.snapshot(),

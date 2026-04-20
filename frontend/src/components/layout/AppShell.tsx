@@ -89,7 +89,7 @@ export function AppShell() {
         <div style={brandBlockStyle}>
           <p style={brandStyle}>WebToActions</p>
           <p style={brandMetaStyle}>
-            阶段 4 已补齐元数据审核页、分析状态流与审核结果保存。
+            阶段 6-7 已补齐资料包导入导出、单进程运行模式与稳定性收口。
           </p>
         </div>
 

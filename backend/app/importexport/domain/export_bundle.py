@@ -6,6 +6,8 @@ from pydantic import Field
 
 from app.core.domain_model import DomainModel, VersionedArtifactModel
 
+CURRENT_PACKAGE_FORMAT_VERSION = "1.0"
+
 
 class ExportScope(StrEnum):
     RECORDING = "recording"
@@ -16,6 +18,13 @@ class ExportScope(StrEnum):
 class VersionedArtifactReference(DomainModel):
     artifact_id: str = Field(min_length=1)
     version: int = Field(ge=1)
+
+
+class ExecutionRunReference(DomainModel):
+    execution_id: str = Field(min_length=1)
+    action_id: str = Field(min_length=1)
+    action_version: int = Field(ge=1)
+    status: str = Field(min_length=1)
 
 
 class ExportBundle(VersionedArtifactModel):
@@ -32,3 +41,12 @@ class ExportBundle(VersionedArtifactModel):
     business_action_refs: list[VersionedArtifactReference] = Field(default_factory=list)
     file_manifest: list[str] = Field(default_factory=list)
     exported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class RecordingBundleManifest(DomainModel):
+    bundle: ExportBundle
+    recording_aggregate_path: str = Field(min_length=1)
+    action_paths: list[str] = Field(default_factory=list)
+    execution_paths: list[str] = Field(default_factory=list)
+    execution_run_refs: list[ExecutionRunReference] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

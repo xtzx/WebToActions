@@ -113,12 +113,38 @@ class FakePlaywrightBridge:
         return FakeRecordingHandle(callbacks=callbacks)
 
 
-def build_test_client(tmp_path: Path, monkeypatch) -> TestClient:  # type: ignore[no-untyped-def]
+@dataclass
+class FailFirstStopRecordingHandle(FakeRecordingHandle):
+    stop_attempts: int = 0
+
+    def stop(self) -> dict[str, object]:
+        self.stop_attempts += 1
+        if self.stop_attempts == 1:
+            raise RuntimeError("simulated browser stop failure")
+        return super().stop()
+
+
+class FailFirstStopBridge:
+    def start_recording(self, **kwargs) -> FailFirstStopRecordingHandle:  # type: ignore[no-untyped-def]
+        callbacks = kwargs["callbacks"]
+        return FailFirstStopRecordingHandle(callbacks=callbacks)
+
+
+def build_test_client(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    browser_bridge_factory=None,
+    raise_server_exceptions: bool = True,
+) -> TestClient:  # type: ignore[no-untyped-def]
     data_dir = tmp_path / ".webtoactions"
     monkeypatch.setenv("WEBTOACTIONS_DATA_DIR", str(data_dir))
     get_settings.cache_clear()
-    app = create_app(browser_bridge_factory=lambda _settings: FakePlaywrightBridge())
-    return TestClient(app)
+    app = create_app(
+        browser_bridge_factory=browser_bridge_factory
+        or (lambda _settings: FakePlaywrightBridge())
+    )
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
 
 def test_sessions_api_creates_and_lists_managed_browser_sessions(
@@ -213,5 +239,64 @@ def test_recording_api_starts_stops_and_exposes_detail_and_sse(
         detail_response = client.get(f"/api/recordings/{started['id']}")
         assert detail_response.status_code == 200
         assert detail_response.json() == detail
+
+    get_settings.cache_clear()
+
+
+def test_recording_api_returns_not_found_for_unknown_browser_session(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    with build_test_client(
+        tmp_path,
+        monkeypatch,
+        raise_server_exceptions=False,
+    ) as client:
+        response = client.post(
+            "/api/recordings",
+            json={
+                "name": "提交报销单",
+                "startUrl": "https://example.com/expense/new",
+                "browserSessionId": "session-missing",
+            },
+        )
+
+        assert response.status_code == 404
+        assert "does not exist" in response.json()["detail"]
+
+    get_settings.cache_clear()
+
+
+def test_recording_stop_failure_keeps_runtime_available_for_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    with build_test_client(
+        tmp_path,
+        monkeypatch,
+        browser_bridge_factory=lambda _settings: FailFirstStopBridge(),
+        raise_server_exceptions=False,
+    ) as client:
+        session_id = client.post("/api/sessions", json={}).json()["id"]
+        start_response = client.post(
+            "/api/recordings",
+            json={
+                "name": "提交报销单",
+                "startUrl": "https://example.com/expense/new",
+                "browserSessionId": session_id,
+            },
+        )
+        recording_id = start_response.json()["id"]
+
+        failed_stop = client.post(f"/api/recordings/{recording_id}/stop")
+        assert failed_stop.status_code == 500
+
+        detail_after_failure = client.get(f"/api/recordings/{recording_id}")
+        assert detail_after_failure.status_code == 200
+        assert detail_after_failure.json()["status"] == "recording"
+
+        retried_stop = client.post(f"/api/recordings/{recording_id}/stop")
+        assert retried_stop.status_code == 200
+        assert retried_stop.json()["status"] == "pending_review"
 
     get_settings.cache_clear()

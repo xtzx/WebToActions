@@ -31,97 +31,124 @@ class SqliteRecordingRepository:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
-    def save(self, aggregate: RecordingAggregate) -> None:
+    def save_recording(self, item: Recording) -> None:
         with self._session_factory.begin() as session:
-            if aggregate.browser_session is not None:
-                browser_session_row = self._browser_session_row(aggregate.browser_session)
-                existing_session = session.execute(
-                    select(browser_session.c.id).where(
-                        browser_session.c.id == aggregate.browser_session.id
-                    )
-                ).first()
-                if existing_session is None:
-                    session.execute(insert(browser_session).values(browser_session_row))
-                else:
-                    session.execute(
-                        update(browser_session)
-                        .where(browser_session.c.id == aggregate.browser_session.id)
-                        .values(browser_session_row)
-                    )
-
-            recording_id = aggregate.recording.id
-            session.execute(
-                delete(file_transfer_record).where(
-                    file_transfer_record.c.recording_id == recording_id
-                )
-            )
-            session.execute(
-                delete(session_state_snapshot).where(
-                    session_state_snapshot.c.recording_id == recording_id
-                )
-            )
-            session.execute(
-                delete(request_response_record).where(
-                    request_response_record.c.recording_id == recording_id
-                )
-            )
-            session.execute(
-                delete(page_stage).where(page_stage.c.recording_id == recording_id)
-            )
-            session.execute(
-                delete(reviewed_metadata).where(
-                    reviewed_metadata.c.recording_id == recording_id
-                )
-            )
-            session.execute(
-                delete(metadata_draft).where(
-                    metadata_draft.c.recording_id == recording_id
-                )
-            )
-            session.execute(delete(recording).where(recording.c.id == recording_id))
-            session.execute(insert(recording).values(self._recording_row(aggregate)))
-
-            if aggregate.page_stages:
+            existing = session.execute(
+                select(recording.c.id).where(recording.c.id == item.id)
+            ).first()
+            row = self._recording_only_row(item)
+            if existing is None:
+                session.execute(insert(recording).values(row))
+            else:
                 session.execute(
-                    insert(page_stage),
-                    [self._page_stage_row(item) for item in aggregate.page_stages],
+                    update(recording)
+                    .where(recording.c.id == item.id)
+                    .values(row)
                 )
 
-            if aggregate.request_response_records:
+    def save(
+        self,
+        aggregate: RecordingAggregate,
+        *,
+        session: Session | None = None,
+    ) -> None:
+        if session is None:
+            with self._session_factory.begin() as managed_session:
+                self._save_in_session(managed_session, aggregate)
+            return
+
+        self._save_in_session(session, aggregate)
+
+    def _save_in_session(self, session: Session, aggregate: RecordingAggregate) -> None:
+        if aggregate.browser_session is not None:
+            browser_session_row = self._browser_session_row(aggregate.browser_session)
+            existing_session = session.execute(
+                select(browser_session.c.id).where(
+                    browser_session.c.id == aggregate.browser_session.id
+                )
+            ).first()
+            if existing_session is None:
+                session.execute(insert(browser_session).values(browser_session_row))
+            else:
                 session.execute(
-                    insert(request_response_record),
-                    [
-                        self._request_response_row(item)
-                        for item in aggregate.request_response_records
-                    ],
+                    update(browser_session)
+                    .where(browser_session.c.id == aggregate.browser_session.id)
+                    .values(browser_session_row)
                 )
 
-            if aggregate.session_state_snapshots:
-                session.execute(
-                    insert(session_state_snapshot),
-                    [
-                        self._session_state_row(item)
-                        for item in aggregate.session_state_snapshots
-                    ],
-                )
+        recording_id = aggregate.recording.id
+        session.execute(
+            delete(file_transfer_record).where(
+                file_transfer_record.c.recording_id == recording_id
+            )
+        )
+        session.execute(
+            delete(session_state_snapshot).where(
+                session_state_snapshot.c.recording_id == recording_id
+            )
+        )
+        session.execute(
+            delete(request_response_record).where(
+                request_response_record.c.recording_id == recording_id
+            )
+        )
+        session.execute(
+            delete(page_stage).where(page_stage.c.recording_id == recording_id)
+        )
+        session.execute(
+            delete(reviewed_metadata).where(
+                reviewed_metadata.c.recording_id == recording_id
+            )
+        )
+        session.execute(
+            delete(metadata_draft).where(
+                metadata_draft.c.recording_id == recording_id
+            )
+        )
+        session.execute(delete(recording).where(recording.c.id == recording_id))
+        session.execute(insert(recording).values(self._recording_row(aggregate)))
 
-            if aggregate.file_transfer_records:
-                session.execute(
-                    insert(file_transfer_record),
-                    [self._file_transfer_row(item) for item in aggregate.file_transfer_records],
-                )
+        if aggregate.page_stages:
+            session.execute(
+                insert(page_stage),
+                [self._page_stage_row(item) for item in aggregate.page_stages],
+            )
 
-            if aggregate.metadata_drafts:
-                session.execute(
-                    insert(metadata_draft),
-                    [self._metadata_draft_row(item) for item in aggregate.metadata_drafts],
-                )
+        if aggregate.request_response_records:
+            session.execute(
+                insert(request_response_record),
+                [
+                    self._request_response_row(item)
+                    for item in aggregate.request_response_records
+                ],
+            )
 
-            if aggregate.reviewed_metadata:
-                session.execute(
-                    insert(reviewed_metadata),
-                    [self._reviewed_metadata_row(item) for item in aggregate.reviewed_metadata],
-                )
+        if aggregate.session_state_snapshots:
+            session.execute(
+                insert(session_state_snapshot),
+                [
+                    self._session_state_row(item)
+                    for item in aggregate.session_state_snapshots
+                ],
+            )
+
+        if aggregate.file_transfer_records:
+            session.execute(
+                insert(file_transfer_record),
+                [self._file_transfer_row(item) for item in aggregate.file_transfer_records],
+            )
+
+        if aggregate.metadata_drafts:
+            session.execute(
+                insert(metadata_draft),
+                [self._metadata_draft_row(item) for item in aggregate.metadata_drafts],
+            )
+
+        if aggregate.reviewed_metadata:
+            session.execute(
+                insert(reviewed_metadata),
+                [self._reviewed_metadata_row(item) for item in aggregate.reviewed_metadata],
+            )
 
     def get(self, recording_id: str) -> RecordingAggregate | None:
         with self._session_factory() as session:
@@ -212,7 +239,9 @@ class SqliteRecordingRepository:
         }
 
     def _recording_row(self, aggregate: RecordingAggregate) -> dict[str, object]:
-        item = aggregate.recording
+        return self._recording_only_row(aggregate.recording)
+
+    def _recording_only_row(self, item: Recording) -> dict[str, object]:
         return {
             "id": item.id,
             "name": item.name,
