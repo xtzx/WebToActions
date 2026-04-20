@@ -55,8 +55,8 @@ recording = Table(
 page_stage = Table(
     "page_stage",
     metadata,
+    Column("recording_id", String(128), ForeignKey("recording.id"), primary_key=True),
     Column("id", String(128), primary_key=True),
-    Column("recording_id", String(128), ForeignKey("recording.id"), nullable=False),
     Column("url", Text, nullable=False),
     Column("name", String(255), nullable=False),
     Column("started_at", DateTime(timezone=True), nullable=False),
@@ -70,9 +70,9 @@ page_stage = Table(
 request_response_record = Table(
     "request_response_record",
     metadata,
+    Column("recording_id", String(128), ForeignKey("recording.id"), primary_key=True),
     Column("id", String(128), primary_key=True),
-    Column("recording_id", String(128), ForeignKey("recording.id"), nullable=False),
-    Column("page_stage_id", String(128), ForeignKey("page_stage.id")),
+    Column("page_stage_id", String(128)),
     Column("request_method", String(16), nullable=False),
     Column("request_url", Text, nullable=False),
     Column("request_headers_json", JSON, nullable=False),
@@ -84,29 +84,41 @@ request_response_record = Table(
     Column("finished_at", DateTime(timezone=True)),
     Column("duration_ms", Integer),
     Column("failure_reason", Text),
+    ForeignKeyConstraint(
+        ["recording_id", "page_stage_id"],
+        ["page_stage.recording_id", "page_stage.id"],
+    ),
 )
 
 
 session_state_snapshot = Table(
     "session_state_snapshot",
     metadata,
+    Column("recording_id", String(128), ForeignKey("recording.id"), primary_key=True),
     Column("id", String(128), primary_key=True),
-    Column("recording_id", String(128), ForeignKey("recording.id"), nullable=False),
     Column("browser_session_id", String(128), ForeignKey("browser_session.id"), nullable=False),
-    Column("page_stage_id", String(128), ForeignKey("page_stage.id")),
-    Column("request_id", String(128), ForeignKey("request_response_record.id")),
+    Column("page_stage_id", String(128)),
+    Column("request_id", String(128)),
     Column("captured_at", DateTime(timezone=True), nullable=False),
     Column("cookie_summary_json", JSON, nullable=False),
     Column("storage_summary_json", JSON, nullable=False),
+    ForeignKeyConstraint(
+        ["recording_id", "page_stage_id"],
+        ["page_stage.recording_id", "page_stage.id"],
+    ),
+    ForeignKeyConstraint(
+        ["recording_id", "request_id"],
+        ["request_response_record.recording_id", "request_response_record.id"],
+    ),
 )
 
 
 file_transfer_record = Table(
     "file_transfer_record",
     metadata,
+    Column("recording_id", String(128), ForeignKey("recording.id"), primary_key=True),
     Column("id", String(128), primary_key=True),
-    Column("recording_id", String(128), ForeignKey("recording.id"), nullable=False),
-    Column("related_request_id", String(128), ForeignKey("request_response_record.id")),
+    Column("related_request_id", String(128)),
     Column("direction", String(16), nullable=False),
     Column("file_name", Text, nullable=False),
     Column("stored_file_blob_key", Text),
@@ -114,6 +126,10 @@ file_transfer_record = Table(
     Column("source_path_summary", Text),
     Column("target_path_summary", Text),
     Column("notes", Text),
+    ForeignKeyConstraint(
+        ["recording_id", "related_request_id"],
+        ["request_response_record.recording_id", "request_response_record.id"],
+    ),
 )
 
 

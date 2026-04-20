@@ -30,6 +30,25 @@ def test_versioned_tables_use_stable_id_plus_version_primary_keys() -> None:
     ]
 
 
+def test_recording_scoped_evidence_tables_use_recording_id_plus_local_id_primary_keys() -> None:
+    assert list(metadata.tables["page_stage"].primary_key.columns.keys()) == [
+        "recording_id",
+        "id",
+    ]
+    assert list(metadata.tables["request_response_record"].primary_key.columns.keys()) == [
+        "recording_id",
+        "id",
+    ]
+    assert list(metadata.tables["session_state_snapshot"].primary_key.columns.keys()) == [
+        "recording_id",
+        "id",
+    ]
+    assert list(metadata.tables["file_transfer_record"].primary_key.columns.keys()) == [
+        "recording_id",
+        "id",
+    ]
+
+
 def test_alembic_upgrade_creates_stage2_index_tables(tmp_path: Path) -> None:
     database_path = tmp_path / ".webtoactions" / "app.db"
     database_path.parent.mkdir(parents=True, exist_ok=True)

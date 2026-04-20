@@ -300,3 +300,44 @@ def test_recording_stop_failure_keeps_runtime_available_for_retry(
         assert retried_stop.json()["status"] == "pending_review"
 
     get_settings.cache_clear()
+
+
+def test_recording_api_can_persist_multiple_recordings_with_local_stage_ids(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    with build_test_client(tmp_path, monkeypatch, raise_server_exceptions=False) as client:
+        session_id = client.post("/api/sessions", json={}).json()["id"]
+
+        first_recording = client.post(
+            "/api/recordings",
+            json={
+                "name": "第一次录制",
+                "startUrl": "https://example.com/expense/new",
+                "browserSessionId": session_id,
+            },
+        )
+        assert first_recording.status_code == 201
+        first_recording_id = first_recording.json()["id"]
+
+        first_stop = client.post(f"/api/recordings/{first_recording_id}/stop")
+        assert first_stop.status_code == 200
+
+        second_recording = client.post(
+            "/api/recordings",
+            json={
+                "name": "第二次录制",
+                "startUrl": "https://example.com/expense/new",
+                "browserSessionId": session_id,
+            },
+        )
+        assert second_recording.status_code == 201
+        second_recording_id = second_recording.json()["id"]
+
+        second_stop = client.post(f"/api/recordings/{second_recording_id}/stop")
+        assert second_stop.status_code == 200
+        detail = second_stop.json()
+        assert detail["status"] == "pending_review"
+        assert len(detail["pageStages"]) == 2
+
+    get_settings.cache_clear()
